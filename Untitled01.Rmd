@@ -1,0 +1,14 @@
+---
+title: "Image Test"
+output: html_document
+---
+
+---
+title: "Intro to gl.relatedness.diagnostics"
+output: learnr::tutorial
+runtime: shiny_prerendered
+---
+
+```{r, echo=FALSE, out.width="70%"}
+knitr::include_graphics(("/Users/ethanhalford/Desktop/DArT_Coding/gl.relatedness_Shiny/termInstructions.png"))
+```
