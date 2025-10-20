@@ -1,0 +1,437 @@
+---
+title: "Intro to gl.relatedness.diagnostics"
+output: learnr::tutorial
+runtime: shiny_prerendered
+---
+
+
+```{r setup, include=FALSE}
+library(learnr)
+library(shiny)
+library(gbRd)
+library(tools)
+library(semantic.dashboard)
+devtools::install_github("https://github.com/green-striped-gecko/dartR.captive/tree/dev_ethan")
+library("dartR.captive")
+knitr::opts_chunk$set(echo = FALSE)
+global <- new.env()
+global$font <- "
+                white-space:normal;
+                font-family:'Lucida Sans Unicode','Lucida Grande',sans-serif;
+                text-align:justify;
+                font-size:14px;
+                font-weight:normal;
+                padding-left:10px;
+                       padding-top:0px;
+                       padding-right:10px;
+                       padding-bottom:0px;
+"
+
+pig <- readRDS("/Users/ethanhalford/Desktop/DArT_Coding/gl.relatedness_Shiny/pig.rds")
+sheep <- readRDS("/Users/ethanhalford/Desktop/DArT_Coding/gl.relatedness_Shiny/sheep.rds")
+
+pigTest <- pig[1:1000] %>%
+  {. <- gl.subsample.loci(., 3000); .}
+sheepTest <- sheep[1:1000] %>%
+  {. <- gl.subsample.loci(., 3000); .}
+
+setup_item <- readRDS("/Users/ethanhalford/Desktop/DArT_Coding/gl.relatedness_Shiny/setup_item.rds")
+
+tutorial_options(
+  exercise.timelimit = 180
+)
+
+
+
+```
+
+
+## Introduction to Genetic relatedness 
+Tutorial introduction
+
+*Parentage analysis is highly useful for the estimation of relatedness across a variety of fields including – conservation, agriculture and human genomics. It provides a succinct and highly accurate way of measuring a variety of forces including sexual selection, effective population size, speciation and natural selection.*
+
+*The basis for the most popular estimators is the concept of identical by descent – or IBD in which two alleles are identical if they are copies of the same allele found in a reference population. Relatedness between two individuals is therefore equal to the proportion of alleles shared between them which are IBD. Kinship, which is a similar measure – is the probability that two alleles, one taken from each individual, are IBD . As such, kinship is equal to half the relatedness value for any two individuals – given that it considers ….. As described in wang (X year), we summarise….*
+
+
+Methods of estimating relatedness 
+
+*Oliehoek et al (2005) summarized contemporary methods as being categorized into 3 distinct groups:*
+
+	1. Those using relationship between additive genetic relatedness – r, population genetic co-ancestry and molecular co-ancestry.
+	2. Those using the relationship between additive genetic relatedness and two gene and four gene coefficients of identity in “non-inbred” populations and consists of Wang (2002) and Lynch and Ritland (1999) and its associated spin offs
+	3. Queller and Goodnight
+
+*However for the purposes of a general introduction we only focus on the first two, with the addition of Jinliang Wang's most recent estimator - EMIBD9.*
+
+1. Additive genetic relatedness methods
+
+*As described above – these estimators make use of estimates of coancestry – or the probability that two alleles drawn at random one from each individual – are IBD. Coancestry and relatedness are expressed relative to a base population – in which no alleles are IBD, hence the co-ancestry between founders is 0. These estimators - make use of the molecular similarity index - referring to a single locus in a pair of individuals - defined as the probability that two marker alleles drawn from two individuals are IBD. Alleles that are molecularly identical in the base population are deemed alike in state (AIS). Problems arise when estimating the allele frequencies for the base population - from which all other estimates are drawn. If the average level of AIS is incorrectly estimated - then resulting estimated will be biased accordingly. If it is underestimated - then the "further back" in time the base population is set - leading to an increase in related estimates. The inverse is also true - an overestimation of AIS will result in an underestimating of relatedness. An example is setting the base population equal to the current population - resulting in negative estimates for some pairs of individuals.*
+
+
+2. Additive genetic relatedness and two and four gene coefficients
+
+*These estimators consider instead the relationship between relatedness and the two and four gene coefficients of identity in non-inbred populations. Lynch and Ritland developed an estimator based on regression of genotype probabilities of one individual on genotype of the other individual of a pair. Thus these include the probability that at a certain locus - a single allele in individual x is IBD to a single allele in individual y and also the probability that both alleles in individual x are IBD to both alleles in individual y. * 
+
+3. EMIBD9 
+
+*The EMIBD9 estimator differs from those previously mentioned – given it use of a maximum likelihood method. In particular it uses the estimation of 9 condensed modes of IBD originally described by Albert Jacquard (1972) – which present the different methods by which 2 individuals at biallelic loci can share IBD alleles. Wang attempts to counteract the bias inherent in the previously mentioned methods - particulary when dealing with inbred populations. In particular he attempts to counter the assumption oft used - of drawing allele frequencies from the same population for which relatedness is attempting to be estimated. Given the assumptions of highly outbred and unrelated populations are frequently violated in such cases - this results in an underestimate of closely related individuals and an overestimate of unrelated/distantly related individuals. To counteract this - Wang proposes the joint estimation of both allele frequencies and dyad probabilities from a sample of genotypes. *
+
+Image of Dyads
+```{r}
+knitr::include_graphics("/Users/ethanhalford/Desktop/DArT_Coding/gl.relatedness_Shiny/images/dyads.png")
+```
+
+
+
+## Introduction
+
+### Intro
+
+*Welcome to this interactive R tutorial designed to provide you with a brief overview of how to use the gl.relatedness.diagnostics function - found in the dartR.captive package. This function allows for the comparison of various methods for estimating relatedness - with a focus on comparing accuracy and specificity.*
+
+We'll start with something basic - loading a github distro. Run the following code to install a dev copy of dartR.captive:
+
+```{r basic, exercise=TRUE}
+devtools::install_github("https://github.com/green-striped-gecko/dartR.captive/tree/dev_ethan")
+```
+
+## Using pedigrees
+
+### Creating pedigrees
+
+*We'll start by reading in some data and sub-setting it - to cut down and run time. There are two possible data sets we've provided which have attached pedigrees - Pig and Sheep. We've already read in the data sets, using your knowledge of dartR and the genlight format - please subset the data frame from its original size to only 200 individuals and 300 loci please. (hint - for loci use gl.subsample.loci())*
+
+Load in either the Pig or Sheep data set and then subset to only 200 individuals and 300 loci.
+
+```{r print-pig, exercise=T}
+pig
+```
+
+An example of what the output should look like:
+
+```{r print-limit-hint}
+pigTest <- pig[1:100] %>%
+  {. <- gl.subsample.loci(., 300); .}
+print(pigTest)
+```
+
+### Generating pedigrees
+
+*We can now run gl.diagnostics.relatedness with an attached pedigree. We will focus particularly on providing output with the Variance and RMSE output for testing the accuracy of various methods of estimating relatedness. To begin we'll provide a little hint with CRAN documentatation - providing you a rundown of the inputs for the function.*
+
+Brief overview of function from CRAN documentation.
+
+```{r, echo=FALSE}
+htmlOutput("literatureOutput")
+```
+
+```{r, context="server"}
+output$literatureOutput <- renderText({
+  temp = Rd2HTML(Rd_fun("gl.diagnostics.relatedness"),out = tempfile("docs"))
+  content = readr::read_file(temp)
+  file.remove(temp)
+  content
+})
+```
+
+#### Basic Run
+
+*We'll start with a basic - run without use of the RMSE or Var output providing you with the basic output. We'll generate the item and then you can work out how the access the various slots within the object. (Hint - use the \@ accessor)*
+
+```{r, include=T}
+setup_item <- gl.diagnostics.relatedness(pigTest, 
+                           cleanup = T, 
+                           run_sim =, 
+                           which_tests = c("wang", "lynchli"),
+                           IncludePlots = T,
+                           rmseOut =F,
+                           varOut = F,
+                           numberIterations = 1, 
+                           numberGenerations = 3,
+                           includedPed = T
+)
+```
+
+
+```{r access_item, exercise=TRUE, exercise.eval=T}
+setup_item 
+```
+
+
+#### Generating plots with RMSE and Var
+*By now you should be able to figure out how to generate plots using your presaved datatset - now try and calculate RMSE and Var using the gl.diagnostics.relatedness, and then access the resulting plots. If in doubt you can check the hint below however please try by yourself first. *
+
+
+```{r, first-excercise, exercise = T}
+noName <- gl.diagnostics.relatedness()
+
+```
+
+```{r, first-excercise-hint, exercise = T, exercise.eval=F}
+setup_item <- gl.diagnostics.relatedness(pigTest, 
+                           cleanup = T, 
+                           run_sim =F, 
+                           which_tests = c("wang", "lynchli"),
+                           IncludePlots = T,
+                           rmseOut =T,
+                           varOut = T,
+                           includedPed = T
+)
+setup_item@corOutList
+```
+
+
+## Running a simulation 
+*We'll next move on to running simulations - used to compare methods of calculating relatedness. The simulations are conducted using the gl.sim functions found in the dartR.sim package - https://cran.r-project.org/web/packages/dartR.sim/refman/dartR.sim.html. First we begin with reading in the reference table - containing the parameters that will encode the simulation. Whilst all this is done for you as a part of the function - we must still read in two important CSV files - ref_variables.csv and sim_variables.csv - used to provide the parameters for the simulation.*
+
+We'll begin with reading both sim_variables and ref_variables to check if they exist, 
+
+```{r, read-files, exercise=T}
+# Reference variables for reference table 
+ref_variables <- read.csv("ref_variables.csv")
+
+#Simulation variables 
+sim_variables <- read.csv("sim_variables.csv")
+```
+
+
+### Your first simulation run 
+*Having read in the files necessary to run the simulation we will now actually conduct a simulation run - using our ref_variables and sim_variables files read in earlier. Now we will assume you have enough know-how to run a basic simulation using prior knowledge provided to you in the tutorial. We will have however start you off, with the important note being that any simulation must be run for at least 3 generations to allow for the creation of the sufficient parent-offspring relationships to allow for the calculation of relatedness levels. *
+
+```{r, first-sim, exercise = T, exercise.eval=F}
+firstSim <- gl.diagnostics.relatedness(`Your Dataset`, 
+                           cleanup = T, 
+                           run_sim =T, 
+                           ref_variables = #insert path to ref_variables, 
+                           sim_variables = #insert path to sim_variables, 
+                           which_tests = c("wang", "lynchli"),
+                           numberGenerations = 3, 
+                           # From here include any further options to may want 
+)
+
+```
+
+
+### Accessing your sim object 
+*Having successfully conducted your first simulation run we can now check the slots of our simulation item - with a similar method as above. To find the slot names you can check the CRAN documentation provided on the previous page. *
+
+```{r, first-sim-access, exercise=T}
+# Access the slots of firstSim
+firstSim
+```
+
+
+## Installing EMIBD9 
+*In addition to the tests provided by the related package we provide the option to include EMIBD9 in the suite of tests run. First we must install EMIDB9 and its associated binaries before doing so. Binaries and installation instructions can be find at - https://www.zsl.org/about-zsl/resources/software/emibd9.*
+
+
+### Mac 
+*Once installation has been completed we must make the binary accessible to our system - to do access the terminal and input the following commands as seen below. *
+
+
+```{r terminalPhoto, }
+knitr::include_graphics(
+  fs::path_abs("www/termInstructions.png", start = here::here())
+)
+```
+
+
+## Example of comparing methods - Pig datatset
+### Introduction to dataset 
+*To illustrate the outcome of using different methods for estimating relatedness, we'll conduct said comparison on an example data set - with an attached pedigree - in this case we'll be using the Pig data set as described in Cleveland et al (2021). This consists of genomic data taken from 3534 pigs found on commercial farms across the United States. In addition to extensive genomic records for a large majority of the population there exists an extensive life history, including age, sex and parentage. As such this data set provides a perfect example for comparing the results of different methods of estimating relatedness - given the possession of an extensive pedigree against which to compare the results. In addition the data set is found to contain high levels of genetic structure - with 2 highly pronounced populations - as such it allows use to analyse the efficacy of different methods at estimating relatedness in the presence of confounding factors - such as inbreeding, assortative mating, etc.*
+
+#### Data cleanup and imaging 
+#### Cleanup 
+*We'll start with a simple sweep of the datatset removing those loci with low read count and filtering on depth. *
+
+```{r filter-callrate, echo=T, results="hide", warning=F}
+pigFilter <- gl.filter.callrate(pigTest, method = "ind", threshold = 0.5)
+```
+
+```{r filter-mono, echo=T, results="hide"}
+pigFilter<- gl.filter.monomorphs(pigFilter,verbose = 5)
+```
+
+```{r filter-call, echo=T, results="hide"}
+pigFilter <- gl.filter.callrate(pigFilter,method = "loc", threshold = 0.95,verbose = 5)
+```
+
+
+*Having filtered for a variety of metrics such as call rate and monomorphs we will now create a PCOA plot to examine they extent of genetic structure extent within the population*
+
+```{r print-PCA}
+pigFilter <- readRDS("/Users/ethanhalford/Desktop/DArT_Coding/gl.relatedness_Shiny/pigFilter.rds")
+pigFilterPCA <- readRDS("/Users/ethanhalford/Desktop/DArT_Coding/gl.relatedness_Shiny/pigFilterPCA.rds")
+pigPCAPlot <- gl.pcoa.plot(pigFilterPCA, pigFilter)
+
+```
+
+
+*As seen, there appears to be quite strong genetic structure within the population - with the clear segregation of two populations. We'll begin with a simple gl.relatedness.diagnostics run without consideration for this genetic structure. *
+
+```{r diag-One, echo=TRUE, results='hide'}
+diagOne <- readRDS("/Users/ethanhalford/Desktop/DArT_Coding/gl.relatedness_Shiny/diagOne.rds")
+
+```
+
+```{r plot-select}
+selectInput("plot_selector", "Choose a plot:",
+                  choices = c("Boxplot" = "box",
+                              "Density" = "densityplot"), 
+            selected = "Boxplot")
+plotOutput("dynamic_plot")
+
+
+```
+
+
+```{r, context="server"}
+diagOne <- readRDS("/Users/ethanhalford/Desktop/DArT_Coding/gl.relatedness_Shiny/diagOne.rds")
+output$dynamic_plot <- renderPlot({
+  if (input$plot_selector == "box") {
+    diagOne@plotList[[1]][[1]]
+  } else if (input$plot_selector == "densityplot") {
+    diagOne@plotList[[1]][[2]]
+  } 
+})
+
+```
+
+
+*As we can see certain methods - particulary EMIBD9 and Wang (2002) have a tendency to overestimate the levels of relatedness present - as such its evident that due the aforementioned methods used in calculating relatedness it struggles with genetic structure present in the dataset. To compensate we'll separate out the two populations and then perform the analysis separately within each population to see the resulting effects on the estimates.*
+
+*Returning to the PCA plot, as discussed above we see 2 clear populations - as such we will separate individuals down the middle - either to the left or right of the y axis - being populations A and B respectively.*
+
+```{r subset-PCA, echo=T}
+groupA <- unique(which(pigFilterPCA$scores[,1] < 0))
+groupB <- unique(which(pigFilterPCA$scores[,1] > 0))
+
+groupA <- pigFilter[groupA]
+groupB <- pigFilter[groupB]
+
+```
+
+
+We can now compare the results for both groupA and groupB running them separately through gl.diagnostics.relatedness
+
+
+```{r plot-select-GroupA}
+selectInput("plot_selector_A", "Choose a plot:",
+                  choices = c("Boxplot" = "box",
+                              "Density" = "densityplot"), 
+            selected = "Boxplot")
+plotOutput("dynamic_plot_A")
+
+
+```
+
+
+```{r, context="server"}
+diagGroupA <- readRDS("/Users/ethanhalford/Desktop/DArT_Coding/gl.relatedness_Shiny/diagGroupA.rds")
+output$dynamic_plot_A <- renderPlot({
+  if (input$plot_selector_A == "box") {
+    diagGroupA@plotList[[1]][[1]]
+  } else if (input$plot_selector_A == "densityplot") {
+    diagGroupB@plotList[[1]][[2]]
+  } 
+})
+
+```
+
+
+```{r plot-select-GroupB}
+selectInput("plot_selector_B", "Choose a plot:",
+                  choices = c("Boxplot" = "box",
+                              "Density" = "densityplot"), 
+            selected = "Boxplot")
+plotOutput("dynamic_plot_B")
+
+
+```
+
+
+```{r, context="server"}
+diagGroupB <- readRDS("/Users/ethanhalford/Desktop/DArT_Coding/gl.relatedness_Shiny/diagGroupB.rds")
+output$dynamic_plot_B <- renderPlot({
+  if (input$plot_selector_B == "box") {
+    diagGroupB@plotList[[1]][[1]]
+  } else if (input$plot_selector_B == "densityplot") {
+    diagGroupB@plotList[[1]][[2]]
+  } 
+})
+
+```
+
+*As we can see by separating out the two populations we improved the resulting fit of the estimates - with EMIBD9 having the most improvement - likely a result of the reduction in genetic structure seen. *
+
+
+## Example of comparing methods - Soay Sheep 
+### Introduction 
+*The Soay sheep is a breed descended from feral sheep found on the island of Soay off the North coast of Scotland, in the St Kilda Archipelago. A population found on the island of Hirta has, since the 1950's, been subject to an extensive study, serving as a model for the research of evolutionary and population dynamics given its feral and unmanaged state. In the last 20 years with the introduction of micro-satellite, SNP and other complexity reduction methods - the study has taken on a new dimension with the addition of whole genome sequencing - allowing scientists to store whole genomic data for individuals within the population. In addition - there exists a large and comprehensive pedigree - providing a surfeit of data on parentage, sex, age and a variety of other characteristics.*
+
+#### Cleanup 
+*We'll start with a simple sweep of the datatset removing those loci with low read count and filtering on depth. *
+
+```{r filter-callrate-sheep, echo=T, results="hide", warning=F}
+sheepFilter <- gl.filter.callrate(pigTest, method = "ind", threshold = 0.5)
+```
+
+```{r filter-mono-sheep, echo=T, results="hide"}
+sheepFilter<- gl.filter.monomorphs(pigFilter,verbose = 5)
+```
+
+```{r filter-call-sheep, echo=T, results="hide"}
+sheepFilter <- gl.filter.callrate(pigFilter,method = "loc", threshold = 0.95,verbose = 5)
+```
+
+
+*Having filtered for a variety of metrics such as call rate and monomorphs we will now create a PCOA plot to examine they extent of genetic structure extent within the population*
+
+```{r print-PCA-sheep}
+sheepFilter <- readRDS("/Users/ethanhalford/Desktop/DArT_Coding/gl.relatedness_Shiny/sheepFilter.rds")
+sheepFilterPCA <- readRDS("/Users/ethanhalford/Desktop/DArT_Coding/gl.relatedness_Shiny/sheepFilterPCA.rds")
+sheepPCAPlot <- gl.pcoa.plot(sheepFilterPCA, sheepFilter)
+
+```
+
+*As seen by the PCA there appears to be little if any genetic structure evident within the population - that is there appears to be minimal if any sub-populations present within the group at large. As such we can reasonably expect the assumptions of our related estimates to hold - primarily it being that the population is large, outbred and undergoes random mating.* 
+
+
+#### Related analysis 
+
+```{r plot-select-sheep}
+selectInput("plot_selector_sheep", "Choose a plot:",
+                  choices = c("Boxplot" = "box",
+                              "Density" = "densityplot"), 
+            selected = "Boxplot")
+plotOutput("dynamic_plot_sheep")
+
+
+```
+
+
+```{r, context="server"}
+sheepDiag <- readRDS("/Users/ethanhalford/Desktop/DArT_Coding/gl.relatedness_Shiny/sheepDiag.rds")
+output$dynamic_plot_sheep <- renderPlot({
+  if (input$plot_selector_sheep == "box") {
+    sheepDiag@plotList[[1]][[1]]
+  } else if (input$plot_selector_sheep == "densityplot") {
+    sheepDiag@plotList[[1]][[2]]
+  } 
+})
+
+```
+
+
+*As expected - all methods held up to half-siblings, broadly congruent with the manual coding results - as seen by the red dotted line. There is a high degree of variance present for full-sibs (NOT SURE HAVE TO READ UP AS TO WHY). In addition all methods appear to greatly overestimate the general relatedness of the population evidenced by the plots seen for the half first and second cousins.*
+
+
+
+
+
+
+
+
+
+
